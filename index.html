@@ -478,7 +478,7 @@ async function renombrar(){
 }
 async function abrirAlus(){
   const d=document.getElementById('alus');
-  d.innerHTML=`<h3>Alumnos</h3><input type="text" id="al-q" placeholder="Buscar por nombre…" autocomplete="off"><div id="al-list"><p>Cargando…</p></div><div class="dbtn" style="grid-template-columns:1fr"><button id="al-x">Cerrar</button></div>`;
+  d.innerHTML=`<h3>Alumnos</h3><button class="grande" data-nuevo="1" style="margin-top:0;border-color:var(--acc);color:var(--acc)">＋ Nuevo alumno</button><input type="text" id="al-q" placeholder="Buscar por nombre…" autocomplete="off"><div id="al-list"><p>Cargando…</p></div><div class="dbtn" style="grid-template-columns:1fr"><button id="al-x">Cerrar</button></div>`;
   d.showModal();
   try{ALUS=await traerTodo('/rest/v1/profiles?select=*&order=nombre')}
   catch(e){document.getElementById('al-list').innerHTML='<p>No se pudo cargar la lista.</p>';return}
@@ -674,6 +674,54 @@ function vistaNuevaClave(){
   <input type="password" id="nc-2" autocomplete="new-password" placeholder="Repetila">
   <p class="err" id="nc-err"></p>
   <button class="hecho on" data-nueva="1">Guardar contraseña</button></div>`;
+}
+
+/* ---------- Alta de alumnos desde la app ---------- */
+const genClave=()=>{
+  const c='abcdefghjkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789',a=new Uint32Array(8);
+  crypto.getRandomValues(a);let r='';a.forEach(n=>{r+=c[n%c.length]});return r;
+};
+function abrirNuevo(){
+  const d=document.getElementById('alus');
+  d.innerHTML=`<h3>Nuevo alumno</h3>
+  <p>Nombre</p><input type="text" id="na-nom" autocomplete="off" placeholder="Nombre y apellido">
+  <p>Mail</p><input type="email" id="na-mail" autocomplete="off" placeholder="alumno@mail.com">
+  <p>Contraseña temporal (se la pasás vos)</p><input type="text" id="na-pass" autocomplete="off" value="${genClave()}">
+  <p class="err" id="na-err" style="color:var(--hot);min-height:1.3em"></p>
+  <div class="dbtn"><button id="na-x">Volver</button><button class="go" id="na-ok">Crear alumno</button></div>`;
+}
+async function crearAlumno(){
+  const nombre=document.getElementById('na-nom').value.trim(),email=document.getElementById('na-mail').value.trim(),pass=document.getElementById('na-pass').value;
+  const er=document.getElementById('na-err');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){er.textContent='Escribí un mail válido.';return}
+  if(pass.length<6){er.textContent='La contraseña tiene que tener al menos 6 caracteres.';return}
+  er.textContent='Creando…';
+  try{
+    const t=await token();
+    const r=await fetch(`${SB}/functions/v1/crear-alumno`,{method:'POST',headers:{apikey:KEY_PUB,Authorization:'Bearer '+t,'Content-Type':'application/json'},body:JSON.stringify({nombre:nombre,email:email,password:pass})});
+    const j=await r.json().catch(()=>({}));
+    if(r.status===404)throw new Error('Todavía no está activada la función de alta en Supabase (falta ese paso).');
+    if(!r.ok){
+      const m=j.error||j.message||('error '+r.status);
+      throw new Error(/already|registered|exists/i.test(m)?'Ese mail ya tiene una cuenta.':/valid email|invalid/i.test(m)?'El mail no es válido.':m);
+    }
+    mostrarAltaOk(nombre,email,pass);
+  }catch(e){er.textContent=e.message||String(e)}
+}
+function mostrarAltaOk(nombre,email,pass){
+  const link=location.href.split('#')[0].split('?')[0].replace(/index\.html$/,'');
+  const msg=`¡Hola${nombre?' '+nombre:''}! Ya tenés tu cuenta en JR.TRAINING 💪\n1) Abrí este link en Chrome: ${link}\n2) Entrá con este mail: ${email}\n    y esta contraseña: ${pass}\n3) Para tenerla como app: menú del navegador (tres puntitos) → Agregar a pantalla de inicio.\nSi te olvidás la contraseña, tocá "Olvidé mi contraseña" en la pantalla de entrada.`;
+  const d=document.getElementById('alus');
+  d.innerHTML=`<h3>Alumno creado ✓</h3>
+  <p>Mandale este mensaje:</p>
+  <textarea id="na-msg" rows="9" readonly>${esc(msg)}</textarea>
+  <div class="dbtn"><button id="na-copy">Copiar</button><a class="ver" style="margin:0;display:flex;align-items:center;justify-content:center" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">WhatsApp</a></div>
+  <div class="dbtn" style="grid-template-columns:1fr"><button class="go" id="na-fin">Listo</button></div>`;
+}
+async function copiarMsg(){
+  const ta=document.getElementById('na-msg');
+  try{await navigator.clipboard.writeText(ta.value);aviso('Copiado ✓',1500)}
+  catch(e){ta.focus();ta.select();try{document.execCommand('copy');aviso('Copiado ✓',1500)}catch(_){aviso('Mantené apretado el texto para copiarlo.',3000)}}
 }
 async function arrancar(){if(sess&&!rec)await iniciar();else render()}
 
@@ -945,6 +993,10 @@ document.addEventListener('click',e=>{
   else if(b.id=='pg-quitar')quitarPago();
   else if(D.olvide)pedirLink();
   else if(D.nueva)cambiarClave();
+  else if(D.nuevo)abrirNuevo();
+  else if(b.id=='na-x'||b.id=='na-fin')abrirAlus();
+  else if(b.id=='na-ok')crearAlumno();
+  else if(b.id=='na-copy')copiarMsg();
   else if(D.salir)cerrarSesion();
   else if(D.retry)iniciar();
   else if(D.alus)abrirAlus();
