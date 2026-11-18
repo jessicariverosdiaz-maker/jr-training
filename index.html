@@ -741,7 +741,7 @@ function getAero(i){
   for(const w of [st.w,0,1,2,3]){const k=`${st.mes}|${w}|${st.d}|a${i}`;if(store.v[k]){viejo=store.v[k];break}}
   return getX('a'+i,viejo);
 }
-const hayDatos=(w,d)=>{const p=`${st.mes}|${w}|${d}|`;return Object.keys(store.v).some(k=>k.startsWith(p))};
+const hayDatos=(w,d)=>{const p=`${st.mes}|${w}|${d}|`,px=`${st.mes}|x|${d}|`;return Object.keys(store.v).some(k=>k.startsWith(p)||k.startsWith(px))};
 
 const todos=()=>[].concat(...GRUPOS.map(g=>LIB[g]),store.lib,Object.values(store.alias));
 function cargarBib(){document.getElementById('bib').innerHTML=todos().map(n=>`<option value="${esc(n)}">`).join('')}
@@ -876,8 +876,8 @@ function render(){
 const T={run:false,fase:'listo',left:0,ronda:0,cfg:null,iv:null};
 let ac;
 function beep(f,ms){
-  try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();
-    o.frequency.value=f;g.gain.value=.15;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+ms/1000)}catch(e){}
+  try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();const o=ac.createOscillator(),g=ac.createGain();
+    o.type='square';o.frequency.value=f;g.gain.value=1;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+ms/1000)}catch(e){}
   if(navigator.vibrate)navigator.vibrate(120);
 }
 function tStop(){T.run=false;clearInterval(T.iv)}
